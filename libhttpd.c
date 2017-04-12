@@ -47,6 +47,7 @@
 #include <memory.h>
 #endif /* HAVE_MEMORY_H */
 #include <pwd.h>
+#include <grp.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -2803,7 +2804,7 @@ ls( httpd_conn* hc )
     <h2>Index of %.80s</h2>\n\
 \n\
     <pre>\n\
-mode  links    bytes  last-changed  name\n\
+mode links owner     group        bytes  last-changed  name\n\
     <hr>",
 		hc->encodedurl, hc->encodedurl );
 
@@ -2846,6 +2847,10 @@ mode  links    bytes  last-changed  name\n\
 	    /* Generate output. */
 	    for ( i = 0; i < nnames; ++i )
 		{
+		struct passwd *pw;
+		struct group *gr;
+		char *owner_name, *group_name;
+
 		httpd_realloc_str(
 		    &name, &maxname,
 		    strlen( hc->expnfilename ) + 1 + strlen( nameptrs[i] ) );
@@ -2950,10 +2955,22 @@ mode  links    bytes  last-changed  name\n\
 		    break;
 		    }
 
+		if ((pw = getpwuid(sb.st_uid))) {
+			owner_name = pw->pw_name;
+		} else {
+			owner_name = "(none)";
+		}
+		if ((gr = getgrgid(sb.st_gid))) {
+			group_name = gr->gr_name;
+		} else {
+			group_name = "(none)";
+		}
+
 		/* And print. */
 		(void)  fprintf( fp,
-		   "%s %3ld  %10lld  %s  <a href=\"/%.500s%s\">%.80s</a>%s%s%s\n",
-		    modestr, (long) lsb.st_nlink, (long long) lsb.st_size,
+		   "%s %3ld   %-9s %-9s %8lld  %s  <a href=\"/%.500s%s\">%.80s</a>%s%s%s\n",
+		    modestr, (long) lsb.st_nlink,
+			owner_name, group_name, (long long) lsb.st_size,
 		    timestr, encrname, S_ISDIR(sb.st_mode) ? "/" : "",
 		    nameptrs[i], linkprefix, lnk, fileclass );
 		}
